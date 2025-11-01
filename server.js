@@ -2,17 +2,16 @@ import express from "express";
 import fetch from "node-fetch";
 import morgan from "morgan";
 
-const app = express(); // <-- вот это должно быть ДО всех app.get / app.all
-
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 // === ENV ===
-const BOT_TOKEN = process.env.BOT_TOKEN;     // Токен бота из BotFather
-const CHAT_ID   = process.env.CHAT_ID;       // ID группы/чата, куда слать
-const SECRET    = process.env.SECRET || "";  // Секретный хвост в URL
+const BOT_TOKEN = process.env.BOT_TOKEN; // токен из BotFather
+const CHAT_ID   = process.env.CHAT_ID;   // chat_id группы
+const SECRET    = process.env.SECRET || ""; // секрет для URL
 
-if (!BOT_TOKEN) {
-  console.error("BOT_TOKEN is missing!");
+if (!BOT_TOKEN || !CHAT_ID) {
+  console.error("❌ Missing BOT_TOKEN or CHAT_ID in environment!");
   process.exit(1);
 }
 
@@ -20,7 +19,7 @@ app.use(morgan("tiny"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-async function sendToTelegram({ text, parseMode = "HTML", disablePreview = true }) {
+async function sendToTelegram(text) {
   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
   const res = await fetch(url, {
     method: "POST",
@@ -28,19 +27,19 @@ async function sendToTelegram({ text, parseMode = "HTML", disablePreview = true 
     body: JSON.stringify({
       chat_id: CHAT_ID,
       text,
-      parse_mode: parseMode,
-      disable_web_page_preview: disablePreview
+      parse_mode: "HTML",
+      disable_web_page_preview: true
     })
   });
   const data = await res.json();
   if (!data.ok) console.error("Telegram API error:", data);
-  return data;
 }
 
 // Healthcheck
-app.get("/", (_req, res) => res.send("OK"));
+app.get("/", (_, res) => res.send("OK"));
 
-// Универсальная точка приёма GET/POST постбеков
+// === Основной роут постбеков ===
+// Работает с GET и POST, принимает SECRET как параметр пути
 app.all("/postback/:secret", async (req, res) => {
   try {
     const secretFromUrl = req.params.secret;
@@ -48,32 +47,40 @@ app.all("/postback/:secret", async (req, res) => {
       return res.status(403).json({ ok: false, error: "Forbidden (bad secret)" });
     }
 
+    // собираем все поля
     const p = { ...req.query, ...req.body };
 
+    // нормализуем данные
+    const status = (p.status || "").toLowerCase();
+
+    // ==== Формируем текст сообщения ====
+    let header = "";
+    if (status === "reg") header = "🟢 <b>New Registration</b>";
+    else if (status === "ftd") header = "💰 <b>New FTD</b>";
+    else if (status === "rd") header = "🔁 <b>Re-Deposit</b>";
+    else header = "📩 <b>New Event</b>";
+
     const lines = [
-      "<b>🚀 New Conversion</b>",
-      p.status ? `Status: <b>${p.status}</b>` : null,
-      p.goal ? `Goal: <b>${p.goal}</b>` : null,
-      p.currency && p.payout ? `Payout: <b>${p.payout} ${p.currency}</b>` : (p.payout ? `Payout: <b>${p.payout}</b>` : null),
-      p.offer ? `Offer: <b>${p.offer}</b>` : null,
-      p.campaign ? `Campaign: <b>${p.campaign}</b>` : null,
-      p.country ? `Country: <b>${p.country}</b>` : null,
-      p.affiliate_id ? `Aff ID: <b>${p.affiliate_id}</b>` : null,
+      header,
+      p.affiliate ? `Affiliate: <b>${p.affiliate}</b>` : null,
+      p.mid ? `MID: <code>${p.mid}</code>` : null,
       p.clickid ? `ClickID: <code>${p.clickid}</code>` : null,
-      p.sub1 ? `sub1: <code>${p.sub1}</code>` : null,
-      p.sub2 ? `sub2: <code>${p.sub2}</code>` : null,
+      p.pubid ? `PubID: <code>${p.pubid}</code>` : null,
+      p.player ? `Player ID: <code>${p.player}</code>` : null,
+      p.currency && p.amount ? `Amount: <b>${p.amount} ${p.currency}</b>` : (p.amount ? `Amount: <b>${p.amount}</b>` : null),
       "",
-      "<i>Raw:</i>",
+      `<i>Raw:</i>`,
       `<code>${JSON.stringify(p)}</code>`
     ].filter(Boolean);
 
     const text = lines.join("\n");
-    await sendToTelegram({ text, parseMode: "HTML" });
+
+    await sendToTelegram(text);
     res.status(200).json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: String(e) });
+  } catch (err) {
+    console.error("❌ Error:", err);
+    res.status(500).json({ ok: false, error: String(err) });
   }
 });
 
-app.listen(PORT, () => console.log(`Listening on ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Listening on port ${PORT}`));
