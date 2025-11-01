@@ -1,15 +1,53 @@
-// Было:
-// app.post(`/postback/${SECRET}`, async (req, res) => {
+import express from "express";
+import fetch from "node-fetch";
+import morgan from "morgan";
 
-// Стало: принимаем и GET, и POST, и секрет как параметр
-app.all('/postback/:secret', async (req, res) => {
+const app = express(); // <-- вот это должно быть ДО всех app.get / app.all
+
+const PORT = process.env.PORT || 3000;
+
+// === ENV ===
+const BOT_TOKEN = process.env.BOT_TOKEN;     // Токен бота из BotFather
+const CHAT_ID   = process.env.CHAT_ID;       // ID группы/чата, куда слать
+const SECRET    = process.env.SECRET || "";  // Секретный хвост в URL
+
+if (!BOT_TOKEN) {
+  console.error("BOT_TOKEN is missing!");
+  process.exit(1);
+}
+
+app.use(morgan("tiny"));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+async function sendToTelegram({ text, parseMode = "HTML", disablePreview = true }) {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text,
+      parse_mode: parseMode,
+      disable_web_page_preview: disablePreview
+    })
+  });
+  const data = await res.json();
+  if (!data.ok) console.error("Telegram API error:", data);
+  return data;
+}
+
+// Healthcheck
+app.get("/", (_req, res) => res.send("OK"));
+
+// Универсальная точка приёма GET/POST постбеков
+app.all("/postback/:secret", async (req, res) => {
   try {
     const secretFromUrl = req.params.secret;
     if (process.env.SECRET && secretFromUrl !== process.env.SECRET) {
       return res.status(403).json({ ok: false, error: "Forbidden (bad secret)" });
     }
 
-    // Собираем параметры из query и body
     const p = { ...req.query, ...req.body };
 
     const lines = [
@@ -37,3 +75,5 @@ app.all('/postback/:secret', async (req, res) => {
     res.status(500).json({ ok: false, error: String(e) });
   }
 });
+
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
