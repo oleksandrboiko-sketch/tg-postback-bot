@@ -116,6 +116,7 @@ app.all("/postback/:secret", async (req, res) => {
     if (clickid)   lines.push(`ClickID: <code>${clickid}</code>`);
     if (pubid)     lines.push(`PubID: <code>${pubid}</code>`);
     if (player)    lines.push(`Player ID: <code>${player}</code>`);
+    if (brand)    lines.push(`Brand: <code>${brand}</code>`);
 
     // Для FTD/rd показываем сумму транзакции (если есть)
     if (Number.isFinite(amountNum)) {
