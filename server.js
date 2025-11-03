@@ -7,7 +7,7 @@ import { open } from "sqlite";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// === ENV ===
+// === ENV === test
 const BOT_TOKEN = process.env.BOT_TOKEN; // токен из BotFather
 const CHAT_ID   = process.env.CHAT_ID;   // chat_id группы
 const SECRET    = process.env.SECRET || ""; // секрет для URL
