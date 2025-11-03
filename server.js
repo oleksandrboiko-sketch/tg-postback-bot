@@ -167,7 +167,85 @@ app.all("/postback/:secret", async (req, res) => {
     res.status(500).json({ ok: false, error: String(err) });
   }
 });
-// Запуск
-initDB().then(() => {
-  app.listen(PORT, () => console.log(`✅ Listening on port ${PORT}`));
+// ... другие маршруты
+
+// === 🔹 1.6 Роут, который отправляет raw в чат по клику ===
+app.get("/raw/:id", async (req, res) => {
+  try {
+    if (process.env.SECRET) {
+      if ((req.query.s || "") !== process.env.SECRET) {
+        return res.status(403).send("Forbidden");
+      }
+    }
+
+    const id = String(req.params.id || "");
+    const row = await db.get(`SELECT payload FROM events WHERE id = ?`, [id]);
+
+    if (!row) {
+      return res.status(404).send("Not found");
+    }
+
+    const payload = row.payload;
+    const esc = (s) =>
+      String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const codeWrap = (s) => `<code>${s}</code>`;
+
+    const chunks = [];
+    const max = 3500;
+    for (let i = 0; i < payload.length; i += max) {
+      chunks.push(payload.slice(i, i + max));
+    }
+
+    await sendToTelegram(`🧾 <b>Raw event</b> (${id})`);
+    for (const part of chunks) {
+      await sendToTelegram(codeWrap(esc(part)));
+    }
+
+    res.status(200).send("Raw sent to chat ✅");
+  } catch (e) {
+    console.error(e);
+    res.status(500).send("Internal error");
+  }
 });
+
+// маршрут
+app.get("/raw/:id", async (req, res) => {
+  try {
+    if (process.env.SECRET) {
+      if ((req.query.s || "") !== process.env.SECRET) {
+        return res.status(403).send("Forbidden");
+      }
+    }
+
+    const id = String(req.params.id || "");
+    const row = await db.get(`SELECT payload FROM events WHERE id = ?`, [id]);
+
+    if (!row) {
+      return res.status(404).send("Not found");
+    }
+
+    const payload = row.payload;
+    const esc = (s) =>
+      String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const codeWrap = (s) => `<code>${s}</code>`;
+
+    const chunks = [];
+    const max = 3500;
+    for (let i = 0; i < payload.length; i += max) {
+      chunks.push(payload.slice(i, i + max));
+    }
+
+    await sendToTelegram(`🧾 <b>Raw event</b> (${id})`);
+    for (const part of chunks) {
+      await sendToTelegram(codeWrap(esc(part)));
+    }
+
+    res.status(200).send("Raw sent to chat ✅");
+  } catch (e) {
+    console.error(e);
+    res.status(500).send("Internal error");
+  }
+});
+
+// === Запуск сервера ===
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
