@@ -4,10 +4,33 @@ import morgan from "morgan";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 
+// ===== УТИЛИТЫ (вставь ПЕРЕД app.all("/postback/:secret") =====
+
+// Экранирование HTML, чтобы Telegram не сломал форматирование
+function esc(s = "") {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Очистка значений, чтобы скрывать пустые, плейсхолдеры и "мусорные" строки
+function cleanVal(v, placeholders = []) {
+  if (v == null) return "";
+  const s = String(v).trim();
+  if (!s) return "";
+  const lower = s.toLowerCase();
+  const deny = new Set([
+    "null", "undefined", "-", "na", "n/a", "none",
+    ...placeholders.map((p) => p.toLowerCase())
+  ]);
+  return deny.has(lower) ? "" : s;
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// === ENV === test
+// === ENV ===
 const BOT_TOKEN = process.env.BOT_TOKEN; // токен из BotFather
 const CHAT_ID   = process.env.CHAT_ID;   // chat_id группы
 const SECRET    = process.env.SECRET || ""; // секрет для URL
