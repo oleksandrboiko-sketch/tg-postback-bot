@@ -3,8 +3,12 @@ import fetch from "node-fetch";
 import morgan from "morgan";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import crypto from "crypto";
 
 // ===== УТИЛИТЫ (вставь ПЕРЕД app.all("/postback/:secret") =====
+
+const genId = () =>
+  crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex");
 
 // Экранирование HTML, чтобы Telegram не сломал форматирование
 function esc(s = "") {
@@ -167,7 +171,7 @@ app.all("/postback/:secret", async (req, res) => {
 
     // 3) НЕ показываем Raw в самом сообщении.
     // Вместо этого — сохраняем payload в БД и даём кнопку "raw" (URL)
-    const eventId = randomUUID();
+    const eventId = genId();
     await db.run(
       `INSERT INTO events (id, payload, created_at) VALUES (?, ?, ?)`,
       [eventId, JSON.stringify(p), Date.now()]
