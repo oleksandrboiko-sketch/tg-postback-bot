@@ -203,9 +203,9 @@ app.all("/postback/:secret", async (req, res) => {
 
     // Заголовок по статусу
     let header = "";
-    if (status === "reg") header = "🟢 <b>New Registration</b>";
-    else if (status === "ftd") header = "💰 <b>New FTD</b>";
-    else if (status === "rd") header = "🔁 <b>Re-Deposit</b>";
+    if (status === "reg") header = "📩 <b>Reg</b>";
+    else if (status === "ftd") header = "🤑 <b>FTD</b>";
+    else if (status === "rd") header = "💶 <b>Re-Deposit</b>";
     else header = "📩 <b>New Event</b>";
 
     // Формируем строковое сообщение (без RAW)
